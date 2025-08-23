@@ -2,6 +2,9 @@
 
 A Streamlit app that computes Core & Shell, fitout & commissioning timelines and dynamic, schedule-driven ROJ dates (with manufacturing lead times). Multi-building, cadence, concurrency, temp power rules, and brand styling included.
 
+## Cloud version
+https://rfs-calculator.streamlit.app/
+
 ## Quick Start (Local)
 
 ```bash
