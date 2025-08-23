@@ -1,0 +1,7 @@
+[theme]
+base = "light"
+primaryColor = "#1b6a87"        # Mano blue
+backgroundColor = "#f4f6f6"     # Off-white
+secondaryBackgroundColor = "#ffffff"
+textColor = "#24333b"           # Mano grey
+font = "sans serif"             # we also inject Raleway via CSS in the app
