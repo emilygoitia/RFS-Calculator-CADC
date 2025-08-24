@@ -417,7 +417,7 @@ def modeled_equipment_rows_for_building(b):
                 "Building Name": b["building_name"],
                 "Equipment": item["Equipment"],
                 "Location": "House",
-                "Required Release/PO": release
+                "Required Release/PO": release,
                 "Submittals (days)": submittals_wd,
                 "Manufacturing (days)": mfg_wd,
                 "Shipping (days)": ship_wd,
