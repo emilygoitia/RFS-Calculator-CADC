@@ -434,13 +434,14 @@ def modeled_equipment_rows_for_building(b):
                 rows.append({
                     "Building Name": b["building_name"],
                     "Equipment": f'{item["Equipment"]} (Hall {i})',
-                    "Scope": "Hall",
-                    "Submittals (wd)": submittals_wd,
-                    "Manufacturing (wd)": mfg_wd,
-                    "Shipping (wd)": ship_wd,
-                    "Modeled Arrival": arrival,
-                    "ROJ (predicted)": roj_h,
-                    "Release/PO (suggested)": release_h
+                    "Location": "Hall",
+                    "Required Release/PO": release_h,
+                    "Submittals (days)": submittals_wd,
+                    "Manufacturing (days)": mfg_wd,
+                    "Shipping (days)": ship_wd,
+                    "Site Acceptance": arrival,
+                    "ROJ": roj_h,
+                    
                 })
     return rows
 
