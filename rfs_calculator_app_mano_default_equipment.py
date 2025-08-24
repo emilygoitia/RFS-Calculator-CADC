@@ -15,9 +15,9 @@ MANO_BLUE = "#1b6a87"
 MANO_OFFWHITE = "#f4f6f6"
 MANO_GREY = "#24333b"
 FITOUT_COLOR = "#DECADE"   # requested color
-L3_COLOR = "#88D18A"
-L4_COLOR = "#FFBC24"
-L5_COLOR = "#F75C03"
+L3_COLOR = "#F34213"
+L4_COLOR = "#F6AE2D"
+L5_COLOR = "#8AAA79"
 
 BRAND_CSS = f"""
 <style>
@@ -416,13 +416,14 @@ def modeled_equipment_rows_for_building(b):
             rows.append({
                 "Building Name": b["building_name"],
                 "Equipment": item["Equipment"],
-                "Scope": "House",
-                "Submittals (wd)": submittals_wd,
-                "Manufacturing (wd)": mfg_wd,
-                "Shipping (wd)": ship_wd,
-                "Modeled Arrival": arrival,
-                "ROJ (predicted)": roj,
-                "Release/PO (suggested)": release
+                "Location": "House",
+                "Required Release/PO": release
+                "Submittals (days)": submittals_wd,
+                "Manufacturing (days)": mfg_wd,
+                "Shipping (days)": ship_wd,
+                "Site Acceptance": arrival,
+                "ROJ": roj,
+
             })
         else:
             for i, h in enumerate(b["halls"], start=1):
@@ -449,7 +450,7 @@ for b in buildings:
 EQUIP_DF = pd.DataFrame(equip_rows)
 
 # ======================= UI =======================
-st.title("📦 Mano RFS Calculator")
+st.title("Mano RFS Calculator")
 
 tab1, tab2, tab3 = st.tabs(["Results", "Timeline", "Equipment List"])
 
@@ -466,7 +467,7 @@ with tab1:
         c4.markdown(f"""<div class="kpi-card"><div>{b['building_name']} — Permanent Power</div>
                         <h4 style="margin:0;color:{MANO_BLUE}">{b['perm_power']:%b %d, %Y}</h4></div>""", unsafe_allow_html=True)
 
-    st.subheader("Hall RFS (All Buildings)")
+    st.subheader("Data Hall RFS (All Buildings)")
     rows = []
     for b in buildings:
         for j, h in enumerate(b["halls"], start=1):
