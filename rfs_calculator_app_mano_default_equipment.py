@@ -29,6 +29,7 @@ BRAND_CSS = f"""
 }}
 html, body, [class*="css"]  {{ font-family: 'Raleway', sans-serif; }}
 .stApp {{ background: var(--mano-offwhite); }}
+* {{ font-family: 'Raleway' !important; }}
 h1, h2, h3, h4, h5, h6 {{ color: var(--mano-grey); font-weight: 600; }}
 .block-container {{ padding-top: 1.0rem; }}
 section[data-testid="stSidebar"] > div {{ background: white; border-right: 4px solid var(--mano-blue); }}
@@ -246,6 +247,26 @@ def clamp(d, lo, hi):
 
 # ======================= Sidebar (Inputs) =======================
 with st.sidebar:
+    st.markdown("""
+    <style>
+        /* Force Streamlit containers to be fluid */
+        [data-testid="element-container"] {
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+        [data-testid="stSlider"] {
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+        [data-testid="stVerticalBlock"] {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        [data-testid="stHorizontalBlock"] {
+            max-width: 100% !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
     st.header("Calendar")
     # No per-year control; just choose a standard holiday calendar.
     country = st.selectbox("Holiday Calendar", ["United States","Mexico","United Kingdom","Italy","Spain"], index=0)
@@ -286,13 +307,28 @@ with st.sidebar:
     site_work = int(round(site_work*scale)); coreshell = int(round(coreshell*scale))
     fitout = int(round(fitout*scale)); L3d = int(round(L3d*scale)); L4d = int(round(L4d*scale)); L5d = max(1,int(round(L5d*scale)))
     site_work = st.slider("Site Work", 40, 180, site_work)
-    coreshell = st.slider("Core & Shell", 60, 300, coreshell)
+    # site_work = st.number_input("Site Work", 40, 180, site_work)
+    sliderContainer = st.container()
+    script = """<div id='slider_outer'></div>"""
+    st.markdown(script, unsafe_allow_html=True)
+    with sliderContainer:
+      script = """<div id='slider_inner'></div>"""
+      st.markdown(script, unsafe_allow_html=True)
+      coreshell = st.slider("Core & Shell", 60, 300, coreshell)
     dryin_pct = st.slider("Dry‑In point within Core & Shell (%)", 10, 90, 60,
                           help="Dry‑In is the earliest allowed set for house equipment.")
     fitout = st.slider("Hall Fitout", 20, 200, fitout)
     L3d = st.slider("Commissioning L3", 5, 90, L3d)
     L4d = st.slider("Commissioning L4", 5, 60, L4d)
     L5d = st.slider("Commissioning L5", 1, 30, L5d)
+
+    ## applying style
+    slider_container_style = """<style>
+    div[data-testid='stVerticalBlock']:has(div#slider_inner):not(:has(div#slider_outer)) {background-color: #E4F2EC; padding: 10px;};
+    </style>
+    """
+    st.markdown(slider_container_style, unsafe_allow_html=True) 
+
 
     # Reset
     if st.button("Reset to Defaults"):
@@ -507,7 +543,8 @@ with tab2:
     }
     fig = px.timeline(gdf, x_start="Start", x_end="Finish", y="Task",
                       color="Phase", color_discrete_map=color_map, title="Project Timeline")
-    fig.update_yaxes(autorange="reversed")
+    fig.update_xaxes(showgrid=True, gridcolor="lightgray")
+    fig.update_yaxes(showgrid=True, autorange="reversed")
     fig.update_layout(plot_bgcolor=MANO_OFFWHITE, paper_bgcolor=MANO_OFFWHITE, font_family="Raleway",
                       legend_title_text="Phase")
     st.plotly_chart(fig, use_container_width=True)
