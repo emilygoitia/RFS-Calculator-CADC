@@ -199,7 +199,7 @@ with tab1:
                 "RFS (L5 Finish)": h["RFS"]
             })
     rfs_df = pd.DataFrame(rows)
-    st.dataframe(rfs_df, hide_index=True, use_container_width=True)
+    # st.dataframe(rfs_df, hide_index=True, use_container_width=True)
 
     render_styled_table(rfs_df)
 
@@ -222,7 +222,7 @@ with tab2:
 
 with tab3:
     st.subheader("Equipment List")
-    st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
+    # st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
     render_styled_table(EQUIP_DF, [110, 200, 90, 110, 90, 90, 90, 90, 110])
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 

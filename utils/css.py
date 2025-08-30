@@ -93,7 +93,7 @@ def inject_custom_css():
       }}
 
       .table-container {{
-        max-height: 400px;
+        max-height: 480px;
         overflow-y: auto;
         margin-bottom: 1rem;
         border-radius: var(--border-radius);
