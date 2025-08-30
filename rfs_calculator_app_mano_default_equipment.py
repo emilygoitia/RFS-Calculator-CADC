@@ -16,36 +16,11 @@ import utils.colors as colors
 
 st.set_page_config(page_title="Mano RFS Calculator", layout="wide")
 styling.inject_custom_css()
-st.logo("./assets/images/Mano_Logo_Main.webp")
+st.logo("./assets/images/Mano_Logo_Main.svg", icon_image="./assets/images/Mano_Mark_Mark.svg")
 
 
 # ======================= Sidebar (Inputs) =======================
 with st.sidebar:
-    st.markdown("""
-    <style>
-        /* Force Streamlit containers to be fluid */
-        [data-testid="element-container"] {
-          max-width: 100% !important;
-          width: 100% !important;
-        }
-        [data-testid="stSlider"] {
-          max-width: 100% !important;
-          width: 100% !important;
-        }
-        [data-testid="stVerticalBlock"] {
-            max-width: 100% !important;
-            width: 100% !important;
-        }
-        [data-testid="stHorizontalBlock"] {
-            max-width: 100% !important;
-            margin-bottom: 1rem;
-        }
-        [data-testid="stMarkdownContainer"] {
-                display: flex;
-                flex-direction: column;
-        }
-    </style>
-""", unsafe_allow_html=True)
     st.header("Calendar")
     # No per-year control; just choose a standard holiday calendar.
     country = st.selectbox("Holiday Calendar", ["United States","Mexico","United Kingdom","Italy","Spain"], index=0)
@@ -197,11 +172,18 @@ tab1, tab2, tab3 = st.tabs(["Results", "Timeline", "Equipment List"])
 with tab1:
     st.subheader("Key Milestones per Building")
     for b in buildings:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(render_kpi_card(b, "Civil Start", 'civil_start'), unsafe_allow_html=True)
-        c2.markdown(render_kpi_card(b, "Dry‑In", 'dryin_date'), unsafe_allow_html=True)
-        c3.markdown(render_kpi_card(b, "Core & Shell Complete", 'core_shell_complete'), unsafe_allow_html=True)
-        c4.markdown(render_kpi_card(b, "Permanent Power", 'perm_power'), unsafe_allow_html=True)
+        container = st.container()
+        combinedCards = f"""
+        <div class="cards-wrapper">
+          <div class="cards-container">
+              {render_kpi_card(b, "Civil Start", 'civil_start')}
+              {render_kpi_card(b, "Dry‑In", 'dryin_date')}
+              {render_kpi_card(b, "Core & Shell Complete", 'core_shell_complete')}
+              {render_kpi_card(b, "Permanent Power", 'perm_power')}
+          </div>
+        </div>
+        """
+        container.markdown(combinedCards, unsafe_allow_html=True)
     st.divider()
     st.subheader("Data Hall RFS (All Buildings)")
     rows = []
@@ -220,11 +202,11 @@ with tab1:
     st.dataframe(rfs_df, hide_index=True, use_container_width=True)
 
     render_styled_table(rfs_df)
-    
+
     st.download_button("Download RFS (CSV)", rfs_df.to_csv(index=False).encode("utf-8"), "rfs_multi_building.csv", "text/csv")
 
 with tab2:
-    st.subheader("Timeline")
+    st.subheader("Project Timeline")
     gantt_rows = []
     for b in buildings:
         gantt_rows.append({"Task": f"{b['building_name']} • Core & Shell", "Start": b["cs_start"], "Finish": b["cs_finish"], "Phase":"Core&Shell"})
@@ -241,6 +223,7 @@ with tab2:
 with tab3:
     st.subheader("Equipment List")
     st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
+    render_styled_table(EQUIP_DF, [110, 200, 90, 110, 90, 90, 90, 90, 110])
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
 st.markdown('<p class="small-muted">Calendar uses the selected country’s standard public holidays • Civil waits for Notice to Proceed & Land Disturbance Permit • Vertical waits for Building Permit • L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitout.</p>', unsafe_allow_html=True)
