@@ -119,16 +119,13 @@ def schedule_building(build_idx:int, row):
     mep_start = date_utils.add_workdays(mep_finish, -mep_yard, HOLIDAYS, workdays_per_week=WW_CONST)
     fitup_gate = date_utils.add_workdays(mep_start, 40, HOLIDAYS, workdays_per_week=WW_CONST)
 
-    hall1_earliest = fitup_gate
-    spacer = 90  # default per your preference; we still expose Fitup duration above
-    cap_parallel = 10**6  # no explicit cap here; can add later if you want
+    fitup_start = fitup_gate
+    fitup_finish = date_utils.add_workdays(fitup_start, fitup, HOLIDAYS, workdays_per_week=WW_CONST)
 
     def commissioning_power_gate():
         return gates["temp_power"] if (temp_power_allowed and gates["temp_power"]) else gates["perm_power"]
 
-    def schedule_one_hall(start_candidate, prev_l3_start):
-        fitup_start = max(start_candidate, fitup_gate)
-        fitup_finish = date_utils.add_workdays(fitup_start, fitup, HOLIDAYS, workdays_per_week=WW_CONST)
+    def schedule_one_hall(prev_l3_start):
         pwr_gate_L34 = commissioning_power_gate()
         l3_candidates = [fitup_finish, pwr_gate_L34]
         if prev_l3_start:
@@ -145,19 +142,11 @@ def schedule_building(build_idx:int, row):
                     L5Start=L5_start, L5Finish=L5_finish, RFS=L5_finish)
 
     halls = []
-    active = []
     prev_l3_start = None
-    for idx in range(1, halls_count+1):
-        candidate = hall1_earliest if idx == 1 else halls[-1]["FitupStart"] + date_utils.timedelta(days=spacer)
-        def in_progress(day): return [d for d in active if d > day]
-        while len(in_progress(candidate)) >= cap_parallel:
-            earliest_free = min(active)
-            candidate = max(earliest_free + date_utils.timedelta(days=1), halls[-1]["FitupStart"] + date_utils.timedelta(days=spacer) if idx>1 else candidate)
-        h = schedule_one_hall(candidate, prev_l3_start)
+    for _ in range(halls_count):
+        h = schedule_one_hall(prev_l3_start)
         halls.append(h)
         prev_l3_start = h["L3Start"]
-        active.append(h["RFS"])
-        active = [d for d in active if d >= candidate]
 
     return dict(
         building_name=bname,
@@ -227,9 +216,12 @@ with tab2:
     for b in buildings:
         gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
         gantt_rows.append({"Task": f"{b['building_name']} • MEP Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"MEP Yard"})
+        fitup_added = False
         for j, h in enumerate(b["halls"], start=1):
+            if not fitup_added:
+                gantt_rows.append({"Task": f"{b['building_name']} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"})
+                fitup_added = True
             gantt_rows += [
-                {"Task": f"{b['building_name']} • Hall {j} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"},
                 {"Task": f"{b['building_name']} • Hall {j} • L3",     "Start": h["L3Start"],    "Finish": h["L3Finish"],   "Phase":"L3"},
                 {"Task": f"{b['building_name']} • Hall {j} • L4",     "Start": h["L4Start"],    "Finish": h["L4Finish"],   "Phase":"L4"},
                 {"Task": f"{b['building_name']} • Hall {j} • L5",     "Start": h["L5Start"],    "Finish": h["L5Finish"],   "Phase":"L5"},
