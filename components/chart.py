@@ -10,8 +10,9 @@ except ModuleNotFoundError:
 
 def render_gantt(gdf):
     color_map = {
-        "Core&Shell": colors.MANO_BLUE,
-        "Fitout": colors.FITOUT_COLOR,
+        "Shell": colors.MANO_BLUE,
+        "MEP Yard": colors.MANO_GREY,
+        "Fitup": colors.FITOUT_COLOR,
         "L3": colors.L3_COLOR,
         "L4": colors.L4_COLOR,
         "L5": colors.L5_COLOR,

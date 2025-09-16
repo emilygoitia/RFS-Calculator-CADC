@@ -45,7 +45,7 @@ def get_modeled_equipment_rows(b, ww, holidays):
         else:
             for i, h in enumerate(b["halls"], start=1):
                 ideal = date_utils.add_workdays(h["L3Start"], -buf, holidays, workdays_per_week=ww)
-                roj_h = date_utils.clamp(ideal, h["FitoutStart"], h["FitoutFinish"])
+                roj_h = date_utils.clamp(ideal, h["FitupStart"], h["FitupFinish"])
                 total_wd = (submittals_wd or 0) + (mfg_wd or 0) + (ship_wd or 0)
                 release_h = date_utils.add_workdays(roj_h, -total_wd, holidays, workdays_per_week=ww) if roj_h else None
                 rows.append({
