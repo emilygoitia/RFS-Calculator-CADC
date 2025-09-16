@@ -22,9 +22,9 @@ st.logo("./assets/images/Mano_Logo_Main.svg", icon_image="./assets/images/Mano_M
 # ======================= Sidebar (Inputs) =======================
 with st.sidebar:
     st.header("Calendar")
-    # No per-year control; just choose a standard holiday calendar.
-    country = st.selectbox("Holiday Calendar", ["United States","Mexico","United Kingdom","Italy","Spain"], index=0)
-    st.caption("Calendar utilizes standard public holidays for the selected country.")
+    country = "United States"
+    st.markdown("**Holiday Calendar:** United States")
+    st.caption("Calendar utilizes standard United States public holidays.")
     six_day_construction = st.checkbox("Use 6‑day workweek for construction activities", value=False)
 
     st.divider()
@@ -50,22 +50,28 @@ with st.sidebar:
     # Per-building config editor: Name, Halls, MW — defaults prefilled
     default_rows = []
     for i in range(1, int(num_buildings)+1):
-        default_rows.append({"Building Name": f"{base_building_name} {i}", "Halls": 4, "MW (total)": 24.0})
+        default_rows.append({"Building Name": f"{base_building_name} {i}", "Halls": 8, "MW (total)": 16.8 * 8})
     st.caption("Edit buildings individually (name, # halls, total MW).")
     build_df = st.data_editor(pd.DataFrame(default_rows), hide_index=True, num_rows="fixed", use_container_width=True)
 
     st.divider()
     st.header("Durations (working days)")
-    site_work = 60; coreshell = 160; fitout = 60; L3d = 40; L4d = 10; L5d = 3
+    site_work = 100; shell = 180; mep_yard = 65; fitup = 50; L3d = 40; L4d = 15; L5d = 2
     scale = {"Typical":1.0, "Aggressive (-10%)":0.9, "Conservative (+15%)":1.15}[preset]
-    site_work = int(round(site_work*scale)); coreshell = int(round(coreshell*scale))
-    fitout = int(round(fitout*scale)); L3d = int(round(L3d*scale)); L4d = int(round(L4d*scale)); L5d = max(1,int(round(L5d*scale)))
+    site_work = int(round(site_work*scale))
+    shell = int(round(shell*scale))
+    mep_yard = max(1, int(round(mep_yard*scale)))
+    fitup = max(1, int(round(fitup*scale)))
+    L3d = int(round(L3d*scale))
+    L4d = int(round(L4d*scale))
+    L5d = max(1,int(round(L5d*scale)))
 
     # Sliders
     site_work = render_styled_slider("Site Work", 40, 180, site_work)
-    coreshell = render_styled_slider("Core & Shell", 60, 300, coreshell)
-    dryin_pct = render_styled_slider("Dry‑In point within Core & Shell (%)", 10, 90, 60, "Dry‑In is the earliest allowed set for house equipment.")
-    fitout = render_styled_slider("Hall Fitout", 20, 200, fitout)
+    shell = render_styled_slider("Shell", 60, 300, shell)
+    mep_yard = render_styled_slider("MEP Yard", 30, 180, mep_yard)
+    dryin_pct = render_styled_slider("Dry‑In point within Shell (%)", 10, 90, 60, "Dry‑In is the earliest allowed set for house equipment.")
+    fitup = render_styled_slider("Hall Fitup", 20, 200, fitup)
     L3d = render_styled_slider("Commissioning L3", 5, 90, L3d)
     L4d = render_styled_slider("Commissioning L4", 5, 60, L4d)
     L5d = render_styled_slider("Commissioning L5", 1, 30, L5d)
@@ -102,44 +108,54 @@ def schedule_building(build_idx:int, row):
 
     civil_start = max(gates["ntp"], gates["ldp"])
     civil_finish = date_utils.add_workdays(civil_start, site_work, HOLIDAYS, workdays_per_week=WW_CONST)
-    cs_start = max(civil_finish, gates["bp"])
-    cs_finish = date_utils.add_workdays(cs_start, coreshell, HOLIDAYS, workdays_per_week=WW_CONST)
-    core_shell_complete = cs_finish
-    dryin_wd = max(1, int(round(coreshell * (dryin_pct/100.0))))
-    dryin_date = date_utils.add_workdays(cs_start, dryin_wd, HOLIDAYS, workdays_per_week=WW_CONST)
 
-    hall1_earliest = core_shell_complete + date_utils.timedelta(days=15)
-    spacer = 90  # default per your preference; we still expose Fitout duration above
+    shell_trigger = date_utils.add_workdays(civil_start, 80, HOLIDAYS, workdays_per_week=WW_CONST)
+    shell_start = max(shell_trigger, gates["bp"])
+    shell_finish = date_utils.add_workdays(shell_start, shell, HOLIDAYS, workdays_per_week=WW_CONST)
+    dryin_wd = max(1, int(round(shell * (dryin_pct/100.0))))
+    dryin_date = date_utils.add_workdays(shell_start, dryin_wd, HOLIDAYS, workdays_per_week=WW_CONST)
+
+    mep_finish = shell_finish
+    mep_start = date_utils.add_workdays(mep_finish, -mep_yard, HOLIDAYS, workdays_per_week=WW_CONST)
+    fitup_gate = date_utils.add_workdays(mep_start, 40, HOLIDAYS, workdays_per_week=WW_CONST)
+
+    hall1_earliest = fitup_gate
+    spacer = 90  # default per your preference; we still expose Fitup duration above
     cap_parallel = 10**6  # no explicit cap here; can add later if you want
 
     def commissioning_power_gate():
         return gates["temp_power"] if (temp_power_allowed and gates["temp_power"]) else gates["perm_power"]
 
-    def schedule_one_hall(start_candidate):
-        fitout_start = max(start_candidate, core_shell_complete)
-        fitout_finish = date_utils.add_workdays(fitout_start, fitout, HOLIDAYS, workdays_per_week=WW_CONST)
+    def schedule_one_hall(start_candidate, prev_l3_start):
+        fitup_start = max(start_candidate, fitup_gate)
+        fitup_finish = date_utils.add_workdays(fitup_start, fitup, HOLIDAYS, workdays_per_week=WW_CONST)
         pwr_gate_L34 = commissioning_power_gate()
-        L3_start = max(fitout_finish, pwr_gate_L34)
+        l3_candidates = [fitup_finish, pwr_gate_L34]
+        if prev_l3_start:
+            l3_candidates.append(date_utils.add_workdays(prev_l3_start, 5, HOLIDAYS, workdays_per_week=WW_CONST))
+        L3_start = max([c for c in l3_candidates if c is not None])
         L3_finish = date_utils.add_workdays(L3_start, L3d, HOLIDAYS, workdays_per_week=WW_CONST)
         L4_start = L3_finish
         L4_finish = date_utils.add_workdays(L4_start, L4d, HOLIDAYS, workdays_per_week=WW_CONST)
         L5_start = max(L4_finish, gates["perm_power"])
         L5_finish = date_utils.add_workdays(L5_start, L5d, HOLIDAYS, workdays_per_week=WW_CONST)
-        return dict(FitoutStart=fitout_start, FitoutFinish=fitout_finish,
+        return dict(FitupStart=fitup_start, FitupFinish=fitup_finish,
                     L3Start=L3_start, L3Finish=L3_finish,
                     L4Start=L4_start, L4Finish=L4_finish,
                     L5Start=L5_start, L5Finish=L5_finish, RFS=L5_finish)
 
     halls = []
     active = []
+    prev_l3_start = None
     for idx in range(1, halls_count+1):
-        candidate = hall1_earliest if idx == 1 else halls[-1]["FitoutStart"] + date_utils.timedelta(days=spacer)
+        candidate = hall1_earliest if idx == 1 else halls[-1]["FitupStart"] + date_utils.timedelta(days=spacer)
         def in_progress(day): return [d for d in active if d > day]
         while len(in_progress(candidate)) >= cap_parallel:
             earliest_free = min(active)
-            candidate = max(earliest_free + date_utils.timedelta(days=1), halls[-1]["FitoutStart"] + date_utils.timedelta(days=spacer) if idx>1 else candidate)
-        h = schedule_one_hall(candidate)
+            candidate = max(earliest_free + date_utils.timedelta(days=1), halls[-1]["FitupStart"] + date_utils.timedelta(days=spacer) if idx>1 else candidate)
+        h = schedule_one_hall(candidate, prev_l3_start)
         halls.append(h)
+        prev_l3_start = h["L3Start"]
         active.append(h["RFS"])
         active = [d for d in active if d >= candidate]
 
@@ -148,14 +164,14 @@ def schedule_building(build_idx:int, row):
         halls_count=halls_count,
         mw_per_hall=mw_per_hall,
         civil_start=civil_start, civil_finish=civil_finish,
-        cs_start=cs_start, cs_finish=cs_finish,
-        core_shell_complete=core_shell_complete,
+        shell_start=shell_start, shell_finish=shell_finish,
+        mep_start=mep_start, mep_finish=mep_finish,
         dryin_date=dryin_date, perm_power=gates["perm_power"],
         halls=halls
     )
 
 # Build schedules
-build_df = build_df.fillna({"Halls":4, "MW (total)":24.0})
+build_df = build_df.fillna({"Halls":8, "MW (total)":16.8 * 8})
 buildings = []
 for i in range(len(build_df)):
     buildings.append(schedule_building(i+1, build_df.iloc[i]))
@@ -178,7 +194,7 @@ with tab1:
           <div class="cards-container">
               {render_kpi_card(b, "Civil Start", 'civil_start')}
               {render_kpi_card(b, "Dry‑In", 'dryin_date')}
-              {render_kpi_card(b, "Core & Shell Complete", 'core_shell_complete')}
+              {render_kpi_card(b, "Shell Complete", 'shell_finish')}
               {render_kpi_card(b, "Permanent Power", 'perm_power')}
           </div>
         </div>
@@ -193,8 +209,8 @@ with tab1:
                 "Building Name": b["building_name"],
                 "Hall": j,
                 "MW per Hall": round(b["mw_per_hall"],2),
-                "Fitout Start": h["FitoutStart"],
-                "Fitout Finish": h["FitoutFinish"],
+                "Fitup Start": h["FitupStart"],
+                "Fitup Finish": h["FitupFinish"],
                 "L3 Start": h["L3Start"],
                 "RFS (L5 Finish)": h["RFS"]
             })
@@ -209,10 +225,11 @@ with tab2:
     st.subheader("Project Timeline")
     gantt_rows = []
     for b in buildings:
-        gantt_rows.append({"Task": f"{b['building_name']} • Core & Shell", "Start": b["cs_start"], "Finish": b["cs_finish"], "Phase":"Core&Shell"})
+        gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
+        gantt_rows.append({"Task": f"{b['building_name']} • MEP Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"MEP Yard"})
         for j, h in enumerate(b["halls"], start=1):
             gantt_rows += [
-                {"Task": f"{b['building_name']} • Hall {j} • Fitout", "Start": h["FitoutStart"], "Finish": h["FitoutFinish"], "Phase":"Fitout"},
+                {"Task": f"{b['building_name']} • Hall {j} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"},
                 {"Task": f"{b['building_name']} • Hall {j} • L3",     "Start": h["L3Start"],    "Finish": h["L3Finish"],   "Phase":"L3"},
                 {"Task": f"{b['building_name']} • Hall {j} • L4",     "Start": h["L4Start"],    "Finish": h["L4Finish"],   "Phase":"L4"},
                 {"Task": f"{b['building_name']} • Hall {j} • L5",     "Start": h["L5Start"],    "Finish": h["L5Finish"],   "Phase":"L5"},
@@ -226,4 +243,4 @@ with tab3:
     render_styled_table(EQUIP_DF, [110, 200, 90, 110, 90, 90, 90, 90, 110])
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
-st.markdown('<p class="small-muted">Calendar uses the selected country’s standard public holidays • Civil waits for Notice to Proceed & Land Disturbance Permit • Vertical waits for Building Permit • L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitout.</p>', unsafe_allow_html=True)
+st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)
