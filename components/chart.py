@@ -14,7 +14,7 @@ def render_gantt(gdf, milestones=None):
     color_map = {
         "Site Work": colors.SITE_WORK_COLOR,
         "Shell": colors.MANO_BLUE,
-        "MEP Yard": colors.MANO_GREY,
+        "Mep Yard": colors.MANO_GREY,
         "Fitup": colors.FITOUT_COLOR,
         "L3": colors.L3_COLOR,
         "L4": colors.L4_COLOR,

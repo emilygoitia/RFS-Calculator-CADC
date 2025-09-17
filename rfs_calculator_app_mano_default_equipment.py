@@ -265,12 +265,14 @@ with tab2:
     st.subheader("Project Timeline")
     gantt_rows = []
     milestone_rows = []
-    aggregate_windows = {"Shell": [], "Fitup": []}
+    aggregate_windows = {"Site Work": [], "Shell": [], "Mep Yard": [], "Fitup": []}
     for b in buildings:
         gantt_rows.append({"Task": f"{b['building_name']} • Site Work", "Start": b["civil_start"], "Finish": b["civil_finish"], "Phase":"Site Work"})
         gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
-        gantt_rows.append({"Task": f"{b['building_name']} • MEP Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"MEP Yard"})
+        gantt_rows.append({"Task": f"{b['building_name']} • Mep Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"Mep Yard"})
+        aggregate_windows["Site Work"].append((b["civil_start"], b["civil_finish"]))
         aggregate_windows["Shell"].append((b["shell_start"], b["shell_finish"]))
+        aggregate_windows["Mep Yard"].append((b["mep_start"], b["mep_finish"]))
         fitup_added = False
         for j, h in enumerate(b["halls"], start=1):
             if not fitup_added:
@@ -291,12 +293,14 @@ with tab2:
         finishes = [w[1] for w in windows if w[1] is not None]
         if starts and finishes:
             gantt_rows.append({
-                "Task": f"All Buildings • {phase}",
+                "Task": phase,
                 "Start": min(starts),
                 "Finish": max(finishes),
                 "Phase": phase,
             })
     gdf = pd.DataFrame(gantt_rows)
+    if not gdf.empty:
+        gdf = gdf.sort_values(by=["Finish", "Start"], na_position="last", kind="mergesort").reset_index(drop=True)
     milestone_df = pd.DataFrame(milestone_rows) if milestone_rows else None
     render_gantt(gdf, milestone_df)
 
