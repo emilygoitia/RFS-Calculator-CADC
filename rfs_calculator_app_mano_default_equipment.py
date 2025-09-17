@@ -241,7 +241,6 @@ with tab1:
             rows.append({
                 "Building Name": b["building_name"],
                 "Hall": j,
-                "MW per Hall": round(b["mw_per_hall"],2),
                 "Fitup Start": h["FitupStart"],
                 "Fitup Finish": h["FitupFinish"],
                 "L3 Start": h["L3Start"],
@@ -260,7 +259,9 @@ with tab1:
 with tab2:
     st.subheader("Project Timeline")
     gantt_rows = []
+    milestone_rows = []
     for b in buildings:
+        gantt_rows.append({"Task": f"{b['building_name']} • Site Work", "Start": b["civil_start"], "Finish": b["civil_finish"], "Phase":"Site Work"})
         gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
         gantt_rows.append({"Task": f"{b['building_name']} • MEP Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"MEP Yard"})
         fitup_added = False
@@ -268,13 +269,18 @@ with tab2:
             if not fitup_added:
                 gantt_rows.append({"Task": f"{b['building_name']} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"})
                 fitup_added = True
+                if b["perm_power"]:
+                    milestone_rows.append({"Task": f"{b['building_name']} • Fitup", "Date": b["perm_power"]})
             gantt_rows += [
                 {"Task": f"{b['building_name']} • Hall {j} • L3",     "Start": h["L3Start"],    "Finish": h["L3Finish"],   "Phase":"L3"},
                 {"Task": f"{b['building_name']} • Hall {j} • L4",     "Start": h["L4Start"],    "Finish": h["L4Finish"],   "Phase":"L4"},
                 {"Task": f"{b['building_name']} • Hall {j} • L5",     "Start": h["L5Start"],    "Finish": h["L5Finish"],   "Phase":"L5"},
             ]
+        if not fitup_added and b["perm_power"]:
+            milestone_rows.append({"Task": f"{b['building_name']} • Site Work", "Date": b["perm_power"]})
     gdf = pd.DataFrame(gantt_rows)
-    render_gantt(gdf)
+    milestone_df = pd.DataFrame(milestone_rows) if milestone_rows else None
+    render_gantt(gdf, milestone_df)
 
 with tab3:
     st.subheader("Equipment List")
