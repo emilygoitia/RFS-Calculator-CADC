@@ -23,20 +23,18 @@ def render_gantt(gdf, milestones=None):
 
     df = gdf.reset_index(drop=True).copy()
     df["Description"] = df["Task"].astype(str)
-    total_rows = len(df)
-    df["RowID"] = total_rows - df.index
+    category_order = df["Description"].tolist()
 
     fig = px.timeline(
         df,
         x_start="Start",
         x_end="Finish",
-        y="RowID",
+        y="Description",
         color="Phase",
         color_discrete_map=color_map,
         title="",
         hover_name="Description",
         hover_data={
-            "RowID": False,
             "Description": False,
             "Start": True,
             "Finish": True,
@@ -49,10 +47,10 @@ def render_gantt(gdf, milestones=None):
         autorange="reversed",
         linewidth=1,
         linecolor=colors.MANO_BLUE,
-        tickmode="array",
-        tickvals=df["RowID"],
-        ticktext=df["Description"],
+        categoryorder="array",
+        categoryarray=category_order[::-1],
     )
+    fig.update_traces(width=0.6)
     fig.update_layout(
         plot_bgcolor="#FFFFFF",
         paper_bgcolor=colors.MANO_OFFWHITE,
@@ -62,18 +60,17 @@ def render_gantt(gdf, milestones=None):
 
     if milestones is not None and not milestones.empty:
         milestone_df = milestones.copy()
-        row_lookup = dict(zip(df["Task"], df["RowID"]))
-        milestone_df["RowID"] = milestone_df["Task"].map(row_lookup)
-        milestone_df = milestone_df.dropna(subset=["RowID"])
+        row_lookup = dict(zip(df["Task"], df["Description"]))
+        milestone_df["RowLabel"] = milestone_df["Task"].map(row_lookup)
+        milestone_df = milestone_df.dropna(subset=["RowLabel"])
         if milestone_df.empty:
             st.plotly_chart(fig, use_container_width=True)
             return
-        milestone_df["RowID"] = milestone_df["RowID"].astype(int)
 
         fig.add_trace(
             go.Scatter(
                 x=milestone_df["Date"],
-                y=milestone_df["RowID"],
+                y=milestone_df["RowLabel"],
                 mode="markers",
                 marker=dict(
                     symbol="circle",
