@@ -90,6 +90,20 @@ def _roj_status(site_accept, roj_target, roj):
     return "🔴"
 
 
+def _release_flag(*release_dates):
+    today = date_utils.date.today()
+    window_end = today + date_utils.timedelta(days=30)
+    valid_dates = [d for d in release_dates if d]
+    if not valid_dates:
+        return ""
+    earliest = min(valid_dates)
+    if earliest < today:
+        return "🔴"
+    if today <= earliest <= window_end:
+        return "🟡"
+    return ""
+
+
 def get_modeled_equipment_rows(b, ww, holidays):
     rows = []
     first_hall = b["halls"][0] if b.get("halls") else None
@@ -126,6 +140,7 @@ def get_modeled_equipment_rows(b, ww, holidays):
                 "Location": "House",
                 "Release Plan": release_plan,
                 "Release Needed": release_needed,
+                "Release Flag": _release_flag(release_plan, release_needed),
                 "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                 "Site Acceptance": site_accept,
                 "ROJ Target": desired,
@@ -158,6 +173,7 @@ def get_modeled_equipment_rows(b, ww, holidays):
                     "Location": "Hall",
                     "Release Plan": release_plan,
                     "Release Needed": release_needed,
+                    "Release Flag": _release_flag(release_plan, release_needed),
                     "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                     "Site Acceptance": site_accept,
                     "ROJ Target": desired,
