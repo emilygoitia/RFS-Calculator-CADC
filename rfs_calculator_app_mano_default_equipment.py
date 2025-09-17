@@ -65,7 +65,7 @@ with st.sidebar:
 
     st.divider()
     st.header("Durations (working days)")
-    site_work = 100; shell = 180; mep_yard = 65; fitup = 50; L3d = 40; L4d = 15; L5d = 2
+    site_work = 100; shell = 185; mep_yard = 65; fitup = 50; L3d = 40; L4d = 15; L5d = 2
     scale = {"Typical":1.0, "Aggressive (-10%)":0.9, "Conservative (+15%)":1.15}[preset]
     site_work = int(round(site_work*scale))
     shell = int(round(shell*scale))
@@ -79,7 +79,13 @@ with st.sidebar:
     site_work = render_styled_slider("Site Work", 40, 180, site_work)
     shell = render_styled_slider("Shell", 60, 300, shell)
     mep_yard = render_styled_slider("MEP Yard", 30, 180, mep_yard)
-    dryin_pct = render_styled_slider("Dry‑In point within Shell (%)", 10, 90, 60, "Dry‑In is the earliest allowed set for house equipment.")
+    dryin_offset_input = render_styled_slider(
+        "Dry‑In point within Shell (working days)",
+        10,
+        260,
+        100,
+        "Dry‑In is capped at the shell duration.",
+    )
     fitup = render_styled_slider("Hall Fitup", 20, 200, fitup)
     L3d = render_styled_slider("Commissioning L3", 5, 90, L3d)
     L4d = render_styled_slider("Commissioning L4", 5, 60, L4d)
@@ -143,14 +149,13 @@ def schedule_building(build_idx:int, row, power_allocator: PowerAllocator):
     shell_trigger = date_utils.add_workdays(civil_start, 80, HOLIDAYS, workdays_per_week=WW_CONST)
     shell_start = max(shell_trigger, gates["bp"])
     shell_finish = date_utils.add_workdays(shell_start, shell, HOLIDAYS, workdays_per_week=WW_CONST)
-    dryin_wd = max(1, int(round(shell * (dryin_pct/100.0))))
+    dryin_wd = max(1, min(shell, int(round(dryin_offset_input))))
     dryin_date = date_utils.add_workdays(shell_start, dryin_wd, HOLIDAYS, workdays_per_week=WW_CONST)
 
     mep_finish = shell_finish
     mep_start = date_utils.add_workdays(mep_finish, -mep_yard, HOLIDAYS, workdays_per_week=WW_CONST)
     fitup_gate = date_utils.add_workdays(mep_start, 40, HOLIDAYS, workdays_per_week=WW_CONST)
-
-    fitup_start = fitup_gate
+    fitup_start = max_date(dryin_date, fitup_gate)
     fitup_finish = date_utils.add_workdays(fitup_start, fitup, HOLIDAYS, workdays_per_week=WW_CONST)
 
     def commissioning_power_gate(power_gate):
@@ -260,15 +265,18 @@ with tab2:
     st.subheader("Project Timeline")
     gantt_rows = []
     milestone_rows = []
+    aggregate_windows = {"Shell": [], "Fitup": []}
     for b in buildings:
         gantt_rows.append({"Task": f"{b['building_name']} • Site Work", "Start": b["civil_start"], "Finish": b["civil_finish"], "Phase":"Site Work"})
         gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
         gantt_rows.append({"Task": f"{b['building_name']} • MEP Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"MEP Yard"})
+        aggregate_windows["Shell"].append((b["shell_start"], b["shell_finish"]))
         fitup_added = False
         for j, h in enumerate(b["halls"], start=1):
             if not fitup_added:
                 gantt_rows.append({"Task": f"{b['building_name']} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"})
                 fitup_added = True
+                aggregate_windows["Fitup"].append((h["FitupStart"], h["FitupFinish"]))
                 if b["perm_power"]:
                     milestone_rows.append({"Task": f"{b['building_name']} • Fitup", "Date": b["perm_power"]})
             gantt_rows += [
@@ -278,6 +286,16 @@ with tab2:
             ]
         if not fitup_added and b["perm_power"]:
             milestone_rows.append({"Task": f"{b['building_name']} • Site Work", "Date": b["perm_power"]})
+    for phase, windows in aggregate_windows.items():
+        starts = [w[0] for w in windows if w[0] is not None]
+        finishes = [w[1] for w in windows if w[1] is not None]
+        if starts and finishes:
+            gantt_rows.append({
+                "Task": f"All Buildings • {phase}",
+                "Start": min(starts),
+                "Finish": max(finishes),
+                "Phase": phase,
+            })
     gdf = pd.DataFrame(gantt_rows)
     milestone_df = pd.DataFrame(milestone_rows) if milestone_rows else None
     render_gantt(gdf, milestone_df)
@@ -288,4 +306,4 @@ with tab3:
     render_styled_table(EQUIP_DF, highlight_release_within_days=30)
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
-st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)
+st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts once Dry‑In is achieved and at least 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)
