@@ -31,12 +31,6 @@ def render_styled_table(df, col_space=110, highlight_release_within_days=None):
     window_end = today + timedelta(days=highlight_release_within_days)
 
     def highlight_release(row):
-      flag = row.get("Release Flag", "")
-      if flag == "🔴":
-        return ["background-color: #f8d7da"] * len(row)
-      if flag == "🟡":
-        return ["background-color: #fff3cd"] * len(row)
-
       release_dates = [
         _coerce_date(row.get("Release Plan")),
         _coerce_date(row.get("Release Needed")),
