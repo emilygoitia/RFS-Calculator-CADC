@@ -103,6 +103,30 @@ def inject_custom_css():
         scrollbar-color: rgba(0,0,0,0.5) transparent;
       }}
 
+      .equipment-legend {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        margin: 0.5rem 0 1.5rem;
+        font-size: 0.85rem;
+        color: #5c6b73;
+      }}
+      .equipment-legend .legend-item {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }}
+      .equipment-legend .legend-swatch {{
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        border: 1px solid rgba(0,0,0,0.15);
+      }}
+      .equipment-legend .legend-overdue {{ background-color: #f8d7da; }}
+      .equipment-legend .legend-upcoming {{ background-color: #fff3cd; }}
+
       .table-container::-webkit-scrollbar {{
         width: 6px;
       }}
