@@ -1,3 +1,5 @@
+import math
+
 import utils.date as date_utils
 import data.equipment as equipment
 
@@ -10,16 +12,6 @@ def _max_date(*dates):
 def _min_date(*dates):
     valid = [d for d in dates if d is not None]
     return min(valid) if valid else None
-
-
-def _format_anchor(anchor, offset):
-    if not anchor:
-        return None
-    label = anchor.replace("_", " ").title()
-    if offset in (None, 0):
-        return label
-    sign = "+" if offset >= 0 else "-"
-    return f"{label} {sign}{abs(int(offset))} wd"
 
 
 def _resolve_anchor_date(anchor, building, hall):
@@ -76,6 +68,28 @@ def _add_offset(base, offset, holidays, ww):
 
 
 # ======================= Procurement model (lead time + back off) =======================
+def _lead_time_weeks(lead_wd):
+    if lead_wd <= 0:
+        return 0
+    return math.ceil(lead_wd / 5)
+
+
+def _roj_status(site_accept, roj_target, roj):
+    if not site_accept:
+        return ""
+
+    target = roj_target or roj
+    if not target:
+        return ""
+
+    delta_days = (site_accept - target).days
+    if delta_days <= 0:
+        return "🟢"
+    if delta_days <= 30:
+        return "🟡"
+    return "🔴"
+
+
 def get_modeled_equipment_rows(b, ww, holidays):
     rows = []
     first_hall = b["halls"][0] if b.get("halls") else None
@@ -85,8 +99,6 @@ def get_modeled_equipment_rows(b, ww, holidays):
         buffer_wd = int(item.get("buffer_wd_before_L3") or 0)
         offset_wd = item.get("release_offset_wd")
         anchor_key = item.get("release_anchor")
-        anchor_label = _format_anchor(anchor_key, offset_wd)
-
         if item["scope"] == "house":
             anchor_date = _resolve_anchor_date(anchor_key, b, None)
             release_plan = _add_offset(anchor_date, offset_wd, holidays, ww)
@@ -112,14 +124,13 @@ def get_modeled_equipment_rows(b, ww, holidays):
                 "Building Name": b["building_name"],
                 "Equipment": item["Equipment"],
                 "Location": "House",
-                "Release Anchor": anchor_label,
                 "Release Plan": release_plan,
                 "Release Needed": release_needed,
-                "Modeled Release": release_used,
-                "Lead Time (wd)": lead_wd,
+                "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                 "Site Acceptance": site_accept,
                 "ROJ Target": desired,
                 "ROJ": roj,
+                "ROJ Status": _roj_status(site_accept, desired, roj),
             })
         else:
             for idx, hall in enumerate(b.get("halls", []), start=1):
@@ -145,13 +156,12 @@ def get_modeled_equipment_rows(b, ww, holidays):
                     "Building Name": b["building_name"],
                     "Equipment": f'{item["Equipment"]} (Hall {idx})',
                     "Location": "Hall",
-                    "Release Anchor": anchor_label,
                     "Release Plan": release_plan,
                     "Release Needed": release_needed,
-                    "Modeled Release": release_used,
-                    "Lead Time (wd)": lead_wd,
+                    "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                     "Site Acceptance": site_accept,
                     "ROJ Target": desired,
                     "ROJ": roj,
+                    "ROJ Status": _roj_status(site_accept, desired, roj),
                 })
     return rows
