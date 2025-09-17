@@ -21,17 +21,38 @@ def render_gantt(gdf, milestones=None):
         "L5": colors.L5_COLOR,
     }
 
+    df = gdf.reset_index(drop=True).copy()
+    df["Description"] = df["Task"].astype(str)
+    total_rows = len(df)
+    df["RowID"] = total_rows - df.index
+
     fig = px.timeline(
-        gdf,
+        df,
         x_start="Start",
         x_end="Finish",
-        y="Task",
+        y="RowID",
         color="Phase",
         color_discrete_map=color_map,
         title="",
+        hover_name="Description",
+        hover_data={
+            "RowID": False,
+            "Description": False,
+            "Start": True,
+            "Finish": True,
+            "Phase": True,
+        },
     )
     fig.update_xaxes(showgrid=True, gridcolor="lightgray", linewidth=1, linecolor=colors.MANO_BLUE)
-    fig.update_yaxes(showgrid=True, autorange="reversed", linewidth=1, linecolor=colors.MANO_BLUE)
+    fig.update_yaxes(
+        showgrid=True,
+        autorange="reversed",
+        linewidth=1,
+        linecolor=colors.MANO_BLUE,
+        tickmode="array",
+        tickvals=df["RowID"],
+        ticktext=df["Description"],
+    )
     fig.update_layout(
         plot_bgcolor="#FFFFFF",
         paper_bgcolor=colors.MANO_OFFWHITE,
@@ -40,10 +61,19 @@ def render_gantt(gdf, milestones=None):
     )
 
     if milestones is not None and not milestones.empty:
+        milestone_df = milestones.copy()
+        row_lookup = dict(zip(df["Task"], df["RowID"]))
+        milestone_df["RowID"] = milestone_df["Task"].map(row_lookup)
+        milestone_df = milestone_df.dropna(subset=["RowID"])
+        if milestone_df.empty:
+            st.plotly_chart(fig, use_container_width=True)
+            return
+        milestone_df["RowID"] = milestone_df["RowID"].astype(int)
+
         fig.add_trace(
             go.Scatter(
-                x=milestones["Date"],
-                y=milestones["Task"],
+                x=milestone_df["Date"],
+                y=milestone_df["RowID"],
                 mode="markers",
                 marker=dict(
                     symbol="circle",
@@ -51,8 +81,9 @@ def render_gantt(gdf, milestones=None):
                     color=colors.POWER_MILESTONE_COLOR,
                     line=dict(color="white", width=1),
                 ),
+                customdata=milestone_df[["Task"]],
                 name="Power Available",
-                hovertemplate="<b>%{y}</b><br>Power Available: %{x|%b %d, %Y}<extra></extra>",
+                hovertemplate="<b>%{customdata[0]}</b><br>Power Available: %{x|%b %d, %Y}<extra></extra>",
             )
         )
 
