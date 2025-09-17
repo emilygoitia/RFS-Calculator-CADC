@@ -300,7 +300,10 @@ with tab2:
             })
     gdf = pd.DataFrame(gantt_rows)
     if not gdf.empty:
-        gdf = gdf.sort_values(by=["Finish", "Start"], na_position="last", kind="mergesort").reset_index(drop=True)
+        gdf = gdf.sort_values(
+            by=["Finish", "Start"], na_position="last", kind="mergesort"
+        )
+        gdf = gdf[~gdf["Task"].duplicated(keep="first")].reset_index(drop=True)
     milestone_df = pd.DataFrame(milestone_rows) if milestone_rows else None
     render_gantt(gdf, milestone_df)
 

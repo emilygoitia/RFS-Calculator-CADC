@@ -48,7 +48,7 @@ def render_gantt(gdf, milestones=None):
         linewidth=1,
         linecolor=colors.MANO_BLUE,
         categoryorder="array",
-        categoryarray=category_order[::-1],
+        categoryarray=category_order,
     )
     fig.update_traces(width=0.6)
     fig.update_layout(
