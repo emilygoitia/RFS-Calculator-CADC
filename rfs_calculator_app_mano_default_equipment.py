@@ -38,7 +38,16 @@ with st.sidebar:
     ntp = st.date_input("Notice to Proceed", value=date_utils.date(today_year, 1, 15))
     ldp = st.date_input("Land Disturbance Permit", value=date_utils.date(today_year, 2, 1))
     bp  = st.date_input("Building Permit", value=date_utils.date(today_year, 5, 1))
-    perm_power = st.date_input("Permanent Power Delivery", value=date_utils.date(today_year, 12, 1))
+    perm_power = st.date_input("Permanent Power Delivery (Tranche 1)", value=date_utils.date(today_year, 12, 1))
+    power_tranche_count = st.number_input("Number of Power Tranches", min_value=1, max_value=5, value=1, step=1)
+    power_tranche_dates = [perm_power]
+    for i in range(2, int(power_tranche_count) + 1):
+        default_offset = date_utils.timedelta(days=90 * (i - 1))
+        default_value = (perm_power + default_offset) if perm_power else None
+        label = f"Power Tranche {i} Delivery"
+        power_tranche_dates.append(
+            st.date_input(label, value=default_value, key=f"power_tranche_{i}")
+        )
     temp_power_allowed = st.checkbox("Allow L3/L4 on Temporary Power", value=False)
     temp_power_date = st.date_input("Temporary Power Available", value=None, disabled=not temp_power_allowed)
 
@@ -91,7 +100,29 @@ HOLIDAYS = date_utils.expand_holidays(country, years)
 WW_CONST = 6 if six_day_construction else 5
 WW_ADMIN = 5
 
-def schedule_building(build_idx:int, row):
+class PowerAllocator:
+    def __init__(self, tranche_dates, halls_per_tranche=12):
+        self.tranche_dates = sorted([d for d in tranche_dates if d])
+        self.halls_per_tranche = max(1, int(halls_per_tranche))
+        self.assigned = 0
+
+    def assign(self):
+        if not self.tranche_dates:
+            return None, None
+        idx = min(self.assigned // self.halls_per_tranche, len(self.tranche_dates) - 1)
+        date = self.tranche_dates[idx]
+        self.assigned += 1
+        return idx, date
+
+def max_date(*dates):
+    valid = [d for d in dates if d is not None]
+    return max(valid) if valid else None
+
+def min_date(*dates):
+    valid = [d for d in dates if d is not None]
+    return min(valid) if valid else None
+
+def schedule_building(build_idx:int, row, power_allocator: PowerAllocator):
     bname = str(row["Building Name"])
     halls_count = int(row["Halls"])
     total_mw = float(row["MW (total)"]) if pd.notna(row["MW (total)"]) else 0.0
@@ -122,24 +153,31 @@ def schedule_building(build_idx:int, row):
     fitup_start = fitup_gate
     fitup_finish = date_utils.add_workdays(fitup_start, fitup, HOLIDAYS, workdays_per_week=WW_CONST)
 
-    def commissioning_power_gate():
-        return gates["temp_power"] if (temp_power_allowed and gates["temp_power"]) else gates["perm_power"]
+    def commissioning_power_gate(power_gate):
+        if temp_power_allowed and gates["temp_power"]:
+            return max_date(power_gate, gates["temp_power"])
+        return power_gate
 
     def schedule_one_hall(prev_l3_start):
-        pwr_gate_L34 = commissioning_power_gate()
+        tranche_idx, tranche_date = power_allocator.assign() if power_allocator else (None, None)
+        power_gate = max_date(gates["perm_power"], tranche_date)
+        pwr_gate_L34 = commissioning_power_gate(power_gate)
+
         l3_candidates = [fitup_finish, pwr_gate_L34]
         if prev_l3_start:
             l3_candidates.append(date_utils.add_workdays(prev_l3_start, 5, HOLIDAYS, workdays_per_week=WW_CONST))
-        L3_start = max([c for c in l3_candidates if c is not None])
+        L3_start = max_date(*l3_candidates)
         L3_finish = date_utils.add_workdays(L3_start, L3d, HOLIDAYS, workdays_per_week=WW_CONST)
         L4_start = L3_finish
         L4_finish = date_utils.add_workdays(L4_start, L4d, HOLIDAYS, workdays_per_week=WW_CONST)
-        L5_start = max(L4_finish, gates["perm_power"])
+        L5_start = max_date(L4_finish, power_gate)
         L5_finish = date_utils.add_workdays(L5_start, L5d, HOLIDAYS, workdays_per_week=WW_CONST)
         return dict(FitupStart=fitup_start, FitupFinish=fitup_finish,
                     L3Start=L3_start, L3Finish=L3_finish,
                     L4Start=L4_start, L4Finish=L4_finish,
-                    L5Start=L5_start, L5Finish=L5_finish, RFS=L5_finish)
+                    L5Start=L5_start, L5Finish=L5_finish, RFS=L5_finish,
+                    PowerTranche=(tranche_idx + 1) if tranche_idx is not None else None,
+                    PowerDeliveryDate=tranche_date, PowerGate=power_gate)
 
     halls = []
     prev_l3_start = None
@@ -156,14 +194,20 @@ def schedule_building(build_idx:int, row):
         shell_start=shell_start, shell_finish=shell_finish,
         mep_start=mep_start, mep_finish=mep_finish,
         dryin_date=dryin_date, perm_power=gates["perm_power"],
-        halls=halls
+        halls=halls,
+        gates=gates
     )
 
 # Build schedules
+power_tranche_dates = [d for d in power_tranche_dates if d]
 build_df = build_df.fillna({"Halls":8, "MW (total)":16.8 * 8})
+avg_halls = build_df["Halls"].mean() if not build_df.empty else 8
+halls_per_tranche = max(1, int(round(avg_halls * 1.5)))
+power_allocator = PowerAllocator(power_tranche_dates, halls_per_tranche=halls_per_tranche)
+
 buildings = []
 for i in range(len(build_df)):
-    buildings.append(schedule_building(i+1, build_df.iloc[i]))
+    buildings.append(schedule_building(i+1, build_df.iloc[i], power_allocator))
 
 equip_rows = []
 for b in buildings:
@@ -201,6 +245,9 @@ with tab1:
                 "Fitup Start": h["FitupStart"],
                 "Fitup Finish": h["FitupFinish"],
                 "L3 Start": h["L3Start"],
+                "Power Tranche": h.get("PowerTranche"),
+                "Power Delivery": h.get("PowerDeliveryDate"),
+                "Power Gate": h.get("PowerGate"),
                 "RFS (L5 Finish)": h["RFS"]
             })
     rfs_df = pd.DataFrame(rows)
@@ -232,7 +279,7 @@ with tab2:
 with tab3:
     st.subheader("Equipment List")
     # st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
-    render_styled_table(EQUIP_DF, [110, 200, 90, 110, 90, 90, 90, 90, 110])
+    render_styled_table(EQUIP_DF)
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
 st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)
