@@ -265,29 +265,34 @@ with tab2:
     st.subheader("Project Timeline")
     gantt_rows = []
     milestone_rows = []
-    aggregate_windows = {"Site Work": [], "Shell": [], "Mep Yard": [], "Fitup": []}
+    aggregate_windows = {"Site Work": [], "Shell": [], "MEP Yard": [], "Fitup": []}
     for b in buildings:
-        gantt_rows.append({"Task": f"{b['building_name']} • Site Work", "Start": b["civil_start"], "Finish": b["civil_finish"], "Phase":"Site Work"})
-        gantt_rows.append({"Task": f"{b['building_name']} • Shell", "Start": b["shell_start"], "Finish": b["shell_finish"], "Phase":"Shell"})
-        gantt_rows.append({"Task": f"{b['building_name']} • Mep Yard", "Start": b["mep_start"], "Finish": b["mep_finish"], "Phase":"Mep Yard"})
         aggregate_windows["Site Work"].append((b["civil_start"], b["civil_finish"]))
         aggregate_windows["Shell"].append((b["shell_start"], b["shell_finish"]))
-        aggregate_windows["Mep Yard"].append((b["mep_start"], b["mep_finish"]))
-        fitup_added = False
+        aggregate_windows["MEP Yard"].append((b["mep_start"], b["mep_finish"]))
+
+        fitup_window = None
         for j, h in enumerate(b["halls"], start=1):
-            if not fitup_added:
-                gantt_rows.append({"Task": f"{b['building_name']} • Fitup", "Start": h["FitupStart"], "Finish": h["FitupFinish"], "Phase":"Fitup"})
-                fitup_added = True
-                aggregate_windows["Fitup"].append((h["FitupStart"], h["FitupFinish"]))
+            if fitup_window is None:
+                fitup_window = (h["FitupStart"], h["FitupFinish"])
+                aggregate_windows["Fitup"].append(fitup_window)
                 if b["perm_power"]:
-                    milestone_rows.append({"Task": f"{b['building_name']} • Fitup", "Date": b["perm_power"]})
+                    milestone_rows.append({
+                        "Task": "Fitup",
+                        "Date": b["perm_power"],
+                        "HoverText": f"{b['building_name']} • Permanent Power",
+                    })
             gantt_rows += [
                 {"Task": f"{b['building_name']} • Hall {j} • L3",     "Start": h["L3Start"],    "Finish": h["L3Finish"],   "Phase":"L3"},
                 {"Task": f"{b['building_name']} • Hall {j} • L4",     "Start": h["L4Start"],    "Finish": h["L4Finish"],   "Phase":"L4"},
                 {"Task": f"{b['building_name']} • Hall {j} • L5",     "Start": h["L5Start"],    "Finish": h["L5Finish"],   "Phase":"L5"},
             ]
-        if not fitup_added and b["perm_power"]:
-            milestone_rows.append({"Task": f"{b['building_name']} • Site Work", "Date": b["perm_power"]})
+        if fitup_window is None and b["perm_power"]:
+            milestone_rows.append({
+                "Task": "Site Work",
+                "Date": b["perm_power"],
+                "HoverText": f"{b['building_name']} • Permanent Power",
+            })
     for phase, windows in aggregate_windows.items():
         starts = [w[0] for w in windows if w[0] is not None]
         finishes = [w[1] for w in windows if w[1] is not None]
@@ -311,6 +316,15 @@ with tab3:
     st.subheader("Equipment List")
     # st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
     render_styled_table(EQUIP_DF, highlight_release_within_days=30)
+    st.markdown(
+        """
+        <div class="equipment-legend">
+          <span class="legend-item"><span class="legend-swatch legend-overdue"></span>Release date past due</span>
+          <span class="legend-item"><span class="legend-swatch legend-upcoming"></span>Release needed within 30 days</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
 st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts once Dry‑In is achieved and at least 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)

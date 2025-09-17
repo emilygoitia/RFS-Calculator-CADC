@@ -14,7 +14,7 @@ def render_gantt(gdf, milestones=None):
     color_map = {
         "Site Work": colors.SITE_WORK_COLOR,
         "Shell": colors.MANO_BLUE,
-        "Mep Yard": colors.MANO_GREY,
+        "MEP Yard": colors.MANO_GREY,
         "Fitup": colors.FITOUT_COLOR,
         "L3": colors.L3_COLOR,
         "L4": colors.L4_COLOR,
@@ -67,6 +67,10 @@ def render_gantt(gdf, milestones=None):
             st.plotly_chart(fig, use_container_width=True)
             return
 
+        customdata_cols = [col for col in ("HoverText", "Task") if col in milestone_df.columns]
+        if not customdata_cols:
+            customdata_cols = ["Task"]
+
         fig.add_trace(
             go.Scatter(
                 x=milestone_df["Date"],
@@ -78,7 +82,7 @@ def render_gantt(gdf, milestones=None):
                     color=colors.POWER_MILESTONE_COLOR,
                     line=dict(color="white", width=1),
                 ),
-                customdata=milestone_df[["Task"]],
+                customdata=milestone_df[customdata_cols],
                 name="Power Available",
                 hovertemplate="<b>%{customdata[0]}</b><br>Power Available: %{x|%b %d, %Y}<extra></extra>",
             )
