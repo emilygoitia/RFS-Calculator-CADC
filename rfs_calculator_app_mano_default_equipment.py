@@ -155,7 +155,7 @@ def schedule_building(build_idx:int, row, power_allocator: PowerAllocator):
 
     def commissioning_power_gate(power_gate):
         if temp_power_allowed and gates["temp_power"]:
-            return max_date(power_gate, gates["temp_power"])
+            return min_date(power_gate, gates["temp_power"])
         return power_gate
 
     def schedule_one_hall(prev_l3_start):
@@ -279,7 +279,7 @@ with tab2:
 with tab3:
     st.subheader("Equipment List")
     # st.dataframe(EQUIP_DF, hide_index=True, use_container_width=True)
-    render_styled_table(EQUIP_DF)
+    render_styled_table(EQUIP_DF, highlight_release_within_days=30)
     st.download_button("Download Equipment (CSV)", EQUIP_DF.to_csv(index=False).encode("utf-8"), "equipment_roj.csv", "text/csv")
 
 st.markdown('<p class="small-muted">Calendar uses United States public holidays • Site Work waits for Notice to Proceed & Land Disturbance Permit • Shell waits for the Building Permit and begins 80 working days after Site Work starts • MEP Yard runs finish-to-finish with Shell • Hall Fitup starts 40 working days after MEP Yard starts • L3 ties to the prior hall (SS+5) and L3/L4 may use Temporary Power • L5 waits for Permanent Power • House equipment ≥ Dry‑In; Hall equipment during Fitup.</p>', unsafe_allow_html=True)
