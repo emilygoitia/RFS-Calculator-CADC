@@ -51,17 +51,12 @@ def render_styled_table(df, col_space=110, highlight_release_within_days=None):
     window_end = today + timedelta(days=highlight_release_within_days)
 
     def highlight_release(row):
-      release_dates = [
-        _coerce_date(row.get("Release Plan")),
-        _coerce_date(row.get("Release Needed")),
-      ]
-      release_dates = [d for d in release_dates if d is not None]
-      if not release_dates:
+      release_date = _coerce_date(row.get("Release Needed"))
+      if release_date is None:
         return [""] * len(row)
-      earliest_release = min(release_dates)
-      if earliest_release < today:
+      if release_date < today:
         return ["background-color: #f8d7da"] * len(row)
-      if earliest_release <= window_end:
+      if release_date <= window_end:
         return ["background-color: #fff3cd"] * len(row)
       return [""] * len(row)
 
