@@ -16,8 +16,28 @@ def _coerce_date(value):
 
 def render_styled_table(df, col_space=110, highlight_release_within_days=None):
   """Render a styled table in Streamlit."""
+  display_df = df.copy()
+
+  status_icon_map = {
+    "Overdue": "🔴",
+    "At Risk": "🟡",
+    "On Track": "🟢",
+  }
+  status_color_map = {
+    "Overdue": "#d62828",
+    "At Risk": "#f4a261",
+    "On Track": "#2a9d8f",
+  }
+
+  if "Status" in display_df.columns:
+    display_df["Status"] = display_df["Status"].map(
+      lambda s: f"{status_icon_map.get(s, '')} {s}".strip()
+      if isinstance(s, str) and s
+      else s
+    )
+
   styler = (
-    df.style
+    display_df.style
       .hide(axis="index")
       .set_table_attributes('class="styled-table"')
       .set_table_styles([
@@ -26,7 +46,7 @@ def render_styled_table(df, col_space=110, highlight_release_within_days=None):
       ])
   )
 
-  if highlight_release_within_days is not None and not df.empty:
+  if highlight_release_within_days is not None and not display_df.empty:
     today = date.today()
     window_end = today + timedelta(days=highlight_release_within_days)
 
@@ -46,6 +66,19 @@ def render_styled_table(df, col_space=110, highlight_release_within_days=None):
       return [""] * len(row)
 
     styler = styler.apply(highlight_release, axis=1)
+
+  if "Status" in display_df.columns:
+    def style_status(val):
+      if isinstance(val, str):
+        if val.startswith("🔴"):
+          return f"color: {status_color_map['Overdue']}; font-weight: 600;"
+        if val.startswith("🟡"):
+          return f"color: {status_color_map['At Risk']}; font-weight: 600;"
+        if val.startswith("🟢"):
+          return f"color: {status_color_map['On Track']}; font-weight: 600;"
+      return ""
+
+    styler = styler.applymap(style_status, subset=["Status"])
 
   html = styler.to_html()
   st.markdown("""<div class="table-container">""" + html + "</div>", unsafe_allow_html=True)

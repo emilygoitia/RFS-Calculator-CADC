@@ -1,4 +1,5 @@
 import math
+from datetime import date, datetime
 
 import utils.date as date_utils
 import data.equipment as equipment
@@ -74,6 +75,21 @@ def _lead_time_weeks(lead_wd):
     return math.ceil(lead_wd / 5)
 
 
+def _equipment_status(release_needed):
+    if release_needed is None:
+        return "On Track"
+
+    if isinstance(release_needed, datetime):
+        release_needed = release_needed.date()
+
+    today = date.today()
+    if release_needed < today:
+        return "Overdue"
+    if (release_needed - today).days <= 30:
+        return "At Risk"
+    return "On Track"
+
+
 def _roj_status(site_accept, roj_target, roj):
     if not site_accept:
         return ""
@@ -126,6 +142,7 @@ def get_modeled_equipment_rows(b, ww, holidays):
                 "Location": "House",
                 "Release Plan": release_plan,
                 "Release Needed": release_needed,
+                "Status": _equipment_status(release_needed),
                 "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                 "Site Acceptance": site_accept,
                 "ROJ Target": desired,
@@ -158,6 +175,7 @@ def get_modeled_equipment_rows(b, ww, holidays):
                     "Location": "Hall",
                     "Release Plan": release_plan,
                     "Release Needed": release_needed,
+                    "Status": _equipment_status(release_needed),
                     "Lead Time (weeks)": _lead_time_weeks(lead_wd),
                     "Site Acceptance": site_accept,
                     "ROJ Target": desired,

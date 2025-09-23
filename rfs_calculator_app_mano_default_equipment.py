@@ -319,8 +319,9 @@ with tab3:
     st.markdown(
         """
         <div class="equipment-legend">
-          <span class="legend-item"><span class="legend-swatch legend-overdue"></span>Release date past due</span>
-          <span class="legend-item"><span class="legend-swatch legend-upcoming"></span>Release needed within 30 days</span>
+          <span class="legend-item">🔴 Overdue</span>
+          <span class="legend-item">🟡 At Risk</span>
+          <span class="legend-item">🟢 On Track</span>
         </div>
         """,
         unsafe_allow_html=True,
