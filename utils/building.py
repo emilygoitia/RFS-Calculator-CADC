@@ -90,22 +90,6 @@ def _equipment_status(release_needed):
     return "On Track"
 
 
-def _roj_status(site_accept, roj_target, roj):
-    if not site_accept:
-        return ""
-
-    target = roj_target or roj
-    if not target:
-        return ""
-
-    delta_days = (site_accept - target).days
-    if delta_days <= 0:
-        return "🟢"
-    if delta_days <= 30:
-        return "🟡"
-    return "🔴"
-
-
 def get_modeled_equipment_rows(b, ww, holidays):
     rows = []
     first_hall = b["halls"][0] if b.get("halls") else None
@@ -147,7 +131,6 @@ def get_modeled_equipment_rows(b, ww, holidays):
                 "Site Acceptance": site_accept,
                 "ROJ Target": desired,
                 "ROJ": roj,
-                "ROJ Status": _roj_status(site_accept, desired, roj),
             })
         else:
             for idx, hall in enumerate(b.get("halls", []), start=1):
@@ -180,6 +163,5 @@ def get_modeled_equipment_rows(b, ww, holidays):
                     "Site Acceptance": site_accept,
                     "ROJ Target": desired,
                     "ROJ": roj,
-                    "ROJ Status": _roj_status(site_accept, desired, roj),
                 })
     return rows
